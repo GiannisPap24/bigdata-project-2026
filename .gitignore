@@ -9,3 +9,5 @@ __pycache__/
 
 # local folders (if any)
 bigdata-uth/
+*_run.txt
+explain_pruning_*.txt
