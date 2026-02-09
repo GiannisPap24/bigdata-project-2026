@@ -1,60 +1,128 @@
-Big Data Project 2025 (Individual)
-AM: 2121035
-
-Git Repository
---------------
+Repository:
 https://github.com/GiannisPap24/bigdata-project-2026.git
 
-Environment
------------
-- OS: Windows + WSL/Ubuntu
-- Connection: OpenVPN (required to access the cluster)
-- HDFS NameNode:
-  hdfs://hdfs-namenode.default.svc.cluster.local:9000/
+Project:
+Big Data Project 2025-26 (Individual)
 
-Input Data (HDFS)
------------------
-- Official CSV:
-  /data/yellow_tripdata_2024.csv
-  /data/taxi_zone_lookup.csv
+Student / Personalization:
+AM: 2121035
+h = 11, L = 4  -> pickup_hours = [11, 12, 13, 14]
+d = 11         -> pickup_days  = [11, 12, 13]  (for 2024)
+K = 14
 
-- Parquet (personal space):
-  /user/ioanpapadopoulos/data/parquet_v2/yellow_2015/
-  /user/ioanpapadopoulos/data/parquet_v2/taxi_zone_lookup/
-  /user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed/   
-
-Personalization Parameters
---------------------------
-- h = 11
-- L = 4  -> hours = [11,12,13,14]
-- d = 11 -> days = [11,12,13]
-- K = 14
-
-Quick Connectivity Check
-------------------------
-- DNS:
+Environment / Access:
+- Connect to the cluster via OpenVPN.
+- Use WSL/Ubuntu.
+- DNS fix (WSL): /etc/wsl.conf -> generateResolvConf=false
+- Connectivity checks:
   getent hosts hdfs-namenode.default.svc.cluster.local
-- NameNode UI:
-  curl -I http://hdfs-namenode.default.svc.cluster.local:9870 | head -n 1
-
-Spark / HDFS Paths
-------------------
-Use full HDFS URI in PySpark:
+  curl -I http://hdfs-namenode.default.svc.cluster.local:9870 | head -n 1  -> HTTP 200
+- In Spark scripts always use full HDFS URI:
   hdfs://hdfs-namenode.default.svc.cluster.local:9000/...
 
-Q3 Preparation (required)
--------------------------
-Convert official 2024 CSV into partitioned parquet with explicit schema.
+Datasets (HDFS paths):
+Parquet (existing):
+- /user/ioanpapadopoulos/data/parquet_v2/yellow_2015
+- /user/ioanpapadopoulos/data/parquet_v2/taxi_zone_lookup
 
-Run:
-  spark-submit make_2024_parquet_fixed.py
+Parquet (fixed 2024, partitioned):
+- /user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed/
+  partitions: pickup_day=.../pickup_hour=...
 
-Output:
-  /user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed/
-Partitions:
-  pickup_day=.../pickup_hour=...
+Official CSV 2024:
+- /data/yellow_tripdata_2024.csv
+- /data/taxi_zone_lookup.csv
 
-Notes
------
-- Q1/Q2/Q3 scripts are executed with spark-submit and print outputs to stdout.
-- Q4/Q5/Q6 scripts will be added next.
+General run pattern:
+- Prefer spark-submit for final runs.
+- For correct timestamps use:
+  --conf spark.sql.session.timeZone=America/New_York
+- For each run capture screenshots:
+  (a) result table/rows
+  (b) explain("formatted")
+  (c) elapsed_sec timing
+
+Scripts (by query):
+
+Q1 (2015):
+- q1_df_parquet_noudf.py
+- q1_df_parquet_udf.py
+- q1_sql_parquet.py
+- q1_sql_csv.py
+- q1_rdd_csv.py
+(optional / variants):
+- q1_sql_csv_k14.py
+- q1_rdd_csv_k14.py
+
+Q2 (RDD / DataFrame / SQL):
+- q2_rdd_2015.py
+- q2_df_parquet.py
+- q2_sql_parquet.py
+(optional / variants):
+- q2_df_parquet_k14.py
+- q2_sql_parquet_k14.py
+- q2_rdd_csv_k14.py
+- q2_rdd_parquet_k14.py
+
+Q3 (Top-K borough->borough flows, 2024 fixed parquet):
+- make_2024_parquet_fixed.py
+- q3_df_parquet_k14.py
+(utilities used during debugging/verification):
+- check_schema_2024_parquet.py
+- check_schema_zones.py
+- explain_pruning_2024_3days.py
+
+Q4 (SQL API, Parquet vs CSV, 2024):
+- q4_sql_parquet.py
+- q4_sql_csv.py
+
+Run commands:
+- Parquet:
+  spark-submit --conf spark.sql.session.timeZone=America/New_York q4_sql_parquet.py
+- CSV:
+  spark-submit --conf spark.sql.session.timeZone=America/New_York q4_sql_csv.py
+
+Q5 (DataFrame API, 2 join strategies):
+- q5_df.py
+
+Run A (default):
+  spark-submit --conf spark.sql.session.timeZone=America/New_York q5_df.py
+
+Run B (no broadcast + AQE off):
+  spark-submit --conf spark.sql.session.timeZone=America/New_York \
+    --conf spark.sql.autoBroadcastJoinThreshold=-1 \
+    --conf spark.sql.adaptive.enabled=false \
+    q5_df.py
+
+Q6 (DataFrame API + scaling, total 8 cores / 16GB):
+- q6_df.py
+
+Scaling runs:
+Run A (2 executors x 4 cores / 8GB each):
+  spark-submit \
+    --master 'local-cluster[2,4,8192]' \
+    --conf spark.dynamicAllocation.enabled=false \
+    --conf spark.executor.instances=2 \
+    --conf spark.executor.cores=4 \
+    --conf spark.executor.memory=8g \
+    q6_df.py
+
+Run B (4 executors x 2 cores / 4GB each):
+  spark-submit \
+    --master 'local-cluster[4,2,4096]' \
+    --conf spark.dynamicAllocation.enabled=false \
+    --conf spark.executor.instances=4 \
+    --conf spark.executor.cores=2 \
+    --conf spark.executor.memory=4g \
+    q6_df.py
+
+Run C (8 executors x 1 core / 2GB each):
+  spark-submit \
+    --master 'local-cluster[8,1,2048]' \
+    --conf spark.dynamicAllocation.enabled=false \
+    --conf spark.executor.instances=8 \
+    --conf spark.executor.cores=1 \
+    --conf spark.executor.memory=2g \
+    q6_df.py
+
+
