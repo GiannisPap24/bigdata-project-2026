@@ -1,0 +1,100 @@
+master = local-cluster[8,1,2048]
+== Physical Plan ==
+AdaptiveSparkPlan (16)
++- Sort (15)
+   +- Exchange (14)
+      +- Project (13)
+         +- HashAggregate (12)
+            +- Exchange (11)
+               +- HashAggregate (10)
+                  +- Project (9)
+                     +- BroadcastHashJoin Inner BuildRight (8)
+                        :- Project (3)
+                        :  +- Filter (2)
+                        :     +- Scan parquet  (1)
+                        +- BroadcastExchange (7)
+                           +- Project (6)
+                              +- Filter (5)
+                                 +- Scan parquet  (4)
+
+
+(1) Scan parquet 
+Output [7]: [VendorID#0, PULocationID#7, total_amount#16, congestion_surcharge#17, Airport_fee#18, pickup_day#20, pickup_hour#21]
+Batched: true
+Location: InMemoryFileIndex [hdfs://hdfs-namenode.default.svc.cluster.local:9000/user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed]
+PartitionFilters: [pickup_day#20 IN (11,12,13), pickup_hour#21 IN (11,12,13,14)]
+PushedFilters: [IsNotNull(PULocationID)]
+ReadSchema: struct<VendorID:int,PULocationID:int,total_amount:double,congestion_surcharge:double,Airport_fee:double>
+
+(2) Filter
+Input [7]: [VendorID#0, PULocationID#7, total_amount#16, congestion_surcharge#17, Airport_fee#18, pickup_day#20, pickup_hour#21]
+Condition : isnotnull(PULocationID#7)
+
+(3) Project
+Output [5]: [VendorID#0, PULocationID#7, coalesce(total_amount#16, 0.0) AS total_amount#50, coalesce(congestion_surcharge#17, 0.0) AS congestion_surcharge#56, coalesce(Airport_fee#18, 0.0) AS airport_fee#62]
+Input [7]: [VendorID#0, PULocationID#7, total_amount#16, congestion_surcharge#17, Airport_fee#18, pickup_day#20, pickup_hour#21]
+
+(4) Scan parquet 
+Output [2]: [LocationID#68, service_zone#71]
+Batched: true
+Location: InMemoryFileIndex [hdfs://hdfs-namenode.default.svc.cluster.local:9000/user/ioanpapadopoulos/data/parquet_v2/taxi_zone_lookup]
+PushedFilters: [IsNotNull(LocationID)]
+ReadSchema: struct<LocationID:int,service_zone:string>
+
+(5) Filter
+Input [2]: [LocationID#68, service_zone#71]
+Condition : isnotnull(LocationID#68)
+
+(6) Project
+Output [2]: [LocationID#68 AS PULocationID#76, service_zone#71]
+Input [2]: [LocationID#68, service_zone#71]
+
+(7) BroadcastExchange
+Input [2]: [PULocationID#76, service_zone#71]
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, true] as bigint)),false), [plan_id=39]
+
+(8) BroadcastHashJoin
+Left keys [1]: [PULocationID#7]
+Right keys [1]: [PULocationID#76]
+Join type: Inner
+Join condition: None
+
+(9) Project
+Output [4]: [VendorID#0, total_amount#50, service_zone#71, (congestion_surcharge#56 + airport_fee#62) AS CongestionAirport_part#86]
+Input [7]: [VendorID#0, PULocationID#7, total_amount#50, congestion_surcharge#56, airport_fee#62, PULocationID#76, service_zone#71]
+
+(10) HashAggregate
+Input [4]: [VendorID#0, total_amount#50, service_zone#71, CongestionAirport_part#86]
+Keys [2]: [VendorID#0, service_zone#71]
+Functions [3]: [partial_count(1), partial_sum(total_amount#50), partial_sum(CongestionAirport_part#86)]
+Aggregate Attributes [3]: [count#127L, sum#128, sum#129]
+Results [5]: [VendorID#0, service_zone#71, count#130L, sum#131, sum#132]
+
+(11) Exchange
+Input [5]: [VendorID#0, service_zone#71, count#130L, sum#131, sum#132]
+Arguments: hashpartitioning(VendorID#0, service_zone#71, 200), ENSURE_REQUIREMENTS, [plan_id=44]
+
+(12) HashAggregate
+Input [5]: [VendorID#0, service_zone#71, count#130L, sum#131, sum#132]
+Keys [2]: [VendorID#0, service_zone#71]
+Functions [3]: [count(1), sum(total_amount#50), sum(CongestionAirport_part#86)]
+Aggregate Attributes [3]: [count(1)#101L, sum(total_amount#50)#103, sum(CongestionAirport_part#86)#105]
+Results [5]: [VendorID#0, service_zone#71, count(1)#101L AS Trips#102L, sum(total_amount#50)#103 AS TotalRevenue#104, sum(CongestionAirport_part#86)#105 AS CongestionAirport#106]
+
+(13) Project
+Output [7]: [VendorID#0, service_zone#71, Trips#102L, TotalRevenue#104, CongestionAirport#106, CASE WHEN (TotalRevenue#104 > 0.0) THEN (CongestionAirport#106 / TotalRevenue#104) ELSE 0.0 END AS Share#112, (TotalRevenue#104 / cast(Trips#102L as double)) AS AvgRevenuePerTrip#119]
+Input [5]: [VendorID#0, service_zone#71, Trips#102L, TotalRevenue#104, CongestionAirport#106]
+
+(14) Exchange
+Input [7]: [VendorID#0, service_zone#71, Trips#102L, TotalRevenue#104, CongestionAirport#106, Share#112, AvgRevenuePerTrip#119]
+Arguments: rangepartitioning(VendorID#0 ASC NULLS FIRST, service_zone#71 ASC NULLS FIRST, 200), ENSURE_REQUIREMENTS, [plan_id=48]
+
+(15) Sort
+Input [7]: [VendorID#0, service_zone#71, Trips#102L, TotalRevenue#104, CongestionAirport#106, Share#112, AvgRevenuePerTrip#119]
+Arguments: [VendorID#0 ASC NULLS FIRST, service_zone#71 ASC NULLS FIRST], true, 0
+
+(16) AdaptiveSparkPlan
+Output [7]: [VendorID#0, service_zone#71, Trips#102L, TotalRevenue#104, CongestionAirport#106, Share#112, AvgRevenuePerTrip#119]
+Arguments: isFinalPlan=false
+
+
