@@ -11,3 +11,7 @@ __pycache__/
 bigdata-uth/
 *_run.txt
 explain_pruning_*.txt
+
+# Reports
+*.docx
+*.pdf
