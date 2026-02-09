@@ -1,0 +1,60 @@
+Big Data Project 2025 (Individual)
+AM: 2121035
+
+Git Repository
+--------------
+<PASTE YOUR GIT REPO LINK HERE>
+
+Environment
+-----------
+- OS: Windows + WSL/Ubuntu
+- Connection: OpenVPN (required to access the cluster)
+- HDFS NameNode:
+  hdfs://hdfs-namenode.default.svc.cluster.local:9000/
+
+Input Data (HDFS)
+-----------------
+- Official CSV:
+  /data/yellow_tripdata_2024.csv
+  /data/taxi_zone_lookup.csv
+
+- Parquet (personal space):
+  /user/ioanpapadopoulos/data/parquet_v2/yellow_2015/
+  /user/ioanpapadopoulos/data/parquet_v2/taxi_zone_lookup/
+  /user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed/   (created by us)
+
+Personalization Parameters
+--------------------------
+- h = 11
+- L = 4  -> hours = [11,12,13,14]
+- d = 11 -> days = [11,12,13]
+- K = 14
+
+Quick Connectivity Check
+------------------------
+- DNS:
+  getent hosts hdfs-namenode.default.svc.cluster.local
+- NameNode UI:
+  curl -I http://hdfs-namenode.default.svc.cluster.local:9870 | head -n 1
+
+Spark / HDFS Paths
+------------------
+Use full HDFS URI in PySpark:
+  hdfs://hdfs-namenode.default.svc.cluster.local:9000/...
+
+Q3 Preparation (required)
+-------------------------
+Convert official 2024 CSV into partitioned parquet with explicit schema.
+
+Run:
+  spark-submit make_2024_parquet_fixed.py
+
+Output:
+  /user/ioanpapadopoulos/data/parquet_v2/yellow_2024_fixed/
+Partitions:
+  pickup_day=.../pickup_hour=...
+
+Notes
+-----
+- Q1/Q2/Q3 scripts are executed with spark-submit and print outputs to stdout.
+- Q4/Q5/Q6 scripts will be added next.

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+
+# logs/outputs (keep repo clean)
+*_stdout*.txt
+*_stderr*.txt
+*_time*.txt
+*.out
+
+# local folders (if any)
+bigdata-uth/
