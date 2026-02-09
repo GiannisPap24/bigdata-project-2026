@@ -3,7 +3,7 @@ AM: 2121035
 
 Git Repository
 --------------
-<PASTE YOUR GIT REPO LINK HERE>
+https://github.com/GiannisPap24/bigdata-project-2026.git
 
 Environment
 -----------
